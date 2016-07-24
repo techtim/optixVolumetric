@@ -35,7 +35,6 @@ if(GLUT_FOUND AND OPENGL_FOUND)
     commonStructs.h
     constantbg.cu
     helpers.h
-    parallelogram.cu
     pinhole_camera.cu
     )
 
