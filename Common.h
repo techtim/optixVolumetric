@@ -1,3 +1,11 @@
+//
+//  Common.h
+//  optixVolumetric
+//
+//  Created by Tim Tavlintsev (TVL)
+//
+//
+
 #include <iostream>
 #include <cstdlib>
 #include <cstring>

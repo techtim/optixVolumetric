@@ -1,3 +1,11 @@
+//
+//  VolumetricScene.h
+//  optixVolumetric
+//
+//  Created by Tim Tavlintsev (TVL)
+//
+//
+
 #include <optixu/optixpp_namespace.h>
 #include <optixu/optixu_math_namespace.h>
 #include "commonStructs.h"
@@ -11,7 +19,7 @@ class VolumetricScene : public SampleScene
 public:
 	VolumetricScene( uint3 volumeSize, string filename, bool bSphereVoxel = false);
 
-	// From SampleScene
+	// Part From SampleScene
 	virtual void initScene( InitialCameraData& camera_data );
 	virtual void trace( const RayGenCameraData& camera_data );
 	virtual Buffer getOutputBuffer();
@@ -57,56 +65,19 @@ unsigned int VolumetricScene::HEIGHT = 800u;
 VolumetricScene::VolumetricScene( uint3 volumeSize, string filename, bool bSphereVoxel)
 	: data_filename(filename), m_volume_size(volumeSize), m_bSphereVoxel(bSphereVoxel), m_bShowShadows(true)
 {
-	setGradient(make_float3(0.0f, 0.5f, 8.f), make_float3(0.2f, 0.8f, 0.f));
+	// default values
+	setGradient(make_float3(0.0f, 0.1f, 8.f), make_float3(0.2f, 0.8f, 0.f));
 	setCutoff(0, 255);
-}
-
-
-bool VolumetricScene::keyPressed(unsigned char key, int x, int y)
-{
-	bool bUpdate = false;
-	switch(key) {
-		case '-':
-			if (m_cutoff_from>0) m_cutoff_from-=1.f;
-			bUpdate = true;
-			break;
-		case '=':
-			if (m_cutoff_from<255) m_cutoff_from+=1.f;
-			bUpdate = true;
-			break;
-		case '[':
-			if (m_cutoff_to>0) m_cutoff_to-=1.f;
-			bUpdate = true;
-			break;
-		case ']':
-			if (m_cutoff_to<255) m_cutoff_to+=1.f;
-			bUpdate = true;
-			break;
-		case 's':
-			m_bShowShadows = !m_bShowShadows;
-			bUpdate = true;
-			break;
-	}
-
-	if (bUpdate) {
-		setCutoff(m_cutoff_from, m_cutoff_to);
-		m_context["show_shadows"]->setInt(m_bShowShadows? 1 : 0);
-		return true;
-	}
-
-	return false;
 }
 
 void VolumetricScene::initScene( InitialCameraData& camera_data )
 {
 	try {
-		srand( 123u );
 		// Setup state
 		m_context->setRayTypeCount( 2 );
 		m_context->setEntryPointCount( 1 );
 		m_context->setStackSize(1200);
 
-		m_context["max_depth"]->setInt( 5 );
 		m_context["radiance_ray_type"]->setUint( 0u );
 		m_context["shadow_ray_type"]->setUint( 1u );
 		m_context["scene_epsilon"]->setFloat( 1.e-4f ); // 0.0001
@@ -154,7 +125,7 @@ void VolumetricScene::initScene( InitialCameraData& camera_data )
 		BasicLight lights[] = { 
 			//{ { 0.0f, 8.0f, -5.0f }, { .4f, .4f, .4f }, 1 },
 			{ make_float3( -600.0f, 100.0f, -1200.0f ), make_float3( 0.8f, 0.8f, 0.8f ), 1 },
-			{ make_float3( -600.0f,   0.0f,  1200.0f ), make_float3( 0.8f, 0.8f, 0.8f ), 0 }
+			{ make_float3( 600.0f,   0.0f,  1200.0f ), make_float3( 0.8f, 0.8f, 0.8f ), 1 }
 		};
 
 		Buffer light_buffer = m_context->createBuffer(RT_BUFFER_INPUT);
@@ -169,6 +140,7 @@ void VolumetricScene::initScene( InitialCameraData& camera_data )
 		// Create scene geom
 		createGeometry();
 
+		// And load data for it
 		loadDataset(data_filename);
 
 		// Finalize
@@ -181,39 +153,28 @@ void VolumetricScene::initScene( InitialCameraData& camera_data )
 	}
 }
 
+// Fill grid with objects
 void VolumetricScene::createGeometry()
 {
+	// Count all voxels
+	m_num_instances = m_volume_size.x * m_volume_size.y * m_volume_size.z;
 
-	// Fill grid with objects
-	createGrid(m_volume_size, m_bSphereVoxel);
-
-	m_context["top_object"]->set( m_sphereGG );
-	m_context["top_shadower"]->set( m_sphereGG );
-}
-
-void VolumetricScene::createGrid(const uint3 & volumeSize, bool bSphereVoxel) {
- 
- 	// Count all voxels
-	m_num_instances = volumeSize.x * volumeSize.y * volumeSize.z;
-
-	// Sphere
-	// string ptx_path( ptxpath( "volumetric", "sphere.cu" ) );
 	string ptx_path( ptxpath( "volumetric", "voxel.cu" ) );
 	m_sphereG = m_context->createGeometry();
-	m_sphereG->setBoundingBoxProgram( m_context->createProgramFromPTXFile( ptx_path, bSphereVoxel? "sphere_bounds" : "box_bounds" ) );
-	m_sphereG->setIntersectionProgram( m_context->createProgramFromPTXFile( ptx_path, bSphereVoxel? "sphere_intersect" : "box_intersect" ) );
+	m_sphereG->setBoundingBoxProgram( m_context->createProgramFromPTXFile( ptx_path, m_bSphereVoxel? "sphere_bounds" : "box_bounds" ) );
+	m_sphereG->setIntersectionProgram( m_context->createProgramFromPTXFile( ptx_path,m_bSphereVoxel? "sphere_intersect" : "box_intersect" ) );
 
 	// Allocate voxels buffer and bind
 	m_voxel_buffer = m_context->createBuffer( RT_BUFFER_INPUT, RT_FORMAT_FLOAT4, m_num_instances );
 	float4 *spheres = reinterpret_cast<float4 *>( m_voxel_buffer->map() );
  
-	int halfW = volumeSize.x/2, halfH = volumeSize.y/2, halfD = volumeSize.z/2;
+	int halfW = m_volume_size.x/2, halfH = m_volume_size.y/2, halfD = m_volume_size.z/2;
 
 	// Fill spheres buffer
 	unsigned int i = 0u;
-	for (int x=0;x<volumeSize.x;x++) 
-		for (int y=0;y<volumeSize.y;y++)
-			for (int z=0;z<volumeSize.z;z++) {
+	for (int x=0;x<m_volume_size.x;x++) 
+		for (int y=0;y<m_volume_size.y;y++)
+			for (int z=0;z<m_volume_size.z;z++) {
 				spheres[i++] = make_float4(static_cast<float>(x-halfW), static_cast<float>(y-halfH), static_cast<float>(z-halfD), 1.f );
 			}
 	
@@ -235,6 +196,8 @@ void VolumetricScene::createGrid(const uint3 & volumeSize, bool bSphereVoxel) {
 	m_sphereGG = m_context->createGeometryGroup( GIs.begin(), GIs.end() );
 	m_sphereGG->setAcceleration( m_sphere_accel = m_context->createAcceleration( "MedianBvh", "Bvh" ) );
 
+	m_context["top_object"]->set( m_sphereGG );
+	m_context["top_shadower"]->set( m_sphereGG );
 }
 
 void VolumetricScene::loadDataset(const string & filename) {
@@ -255,17 +218,50 @@ void VolumetricScene::loadDataset(const string & filename) {
 	// Create color buffer for spheres and bind to pointer
 	m_color_buffer = m_context->createBuffer( RT_BUFFER_INPUT, RT_FORMAT_FLOAT4, data.size());
 	float4 *colors = reinterpret_cast<float4 *>( m_color_buffer->map() );
-
 	
+	// fill buffer with values from file
 	for(unsigned int i = 0; i<data.size(); i++) {
 		colors[i] = make_float4(interpolate(m_gradient_begin, m_gradient_end, data[i]/255.f), data[i]);
-		// if (colors[i].w != 0)
-			// cout<< (int)data[i] << endl;
-			// cout<< colors[i].x <<"-"<< colors[i].y <<"-"<< colors[i].z << endl;
 	}
+	// unbind buffer
 	m_color_buffer->unmap();
 
 	m_context["color_buffer"]->setBuffer(m_color_buffer);
+}
+
+bool VolumetricScene::keyPressed(unsigned char key, int x, int y)
+{
+	bool bUpdate = false;
+	switch(key) {
+		case '-':
+			if (m_cutoff_from>0) m_cutoff_from-=1.f;
+			bUpdate = true;
+			break;
+		case '=':
+			if (m_cutoff_from<255) m_cutoff_from+=1.f;
+			bUpdate = true;
+			break;
+		case '[':
+			if (m_cutoff_to>0) m_cutoff_to-=1.f;
+			bUpdate = true;
+			break;
+		case ']':
+			if (m_cutoff_to<255) m_cutoff_to+=1.f;
+			bUpdate = true;
+			break;
+		case 's':
+			m_bShowShadows = !m_bShowShadows;
+			m_context["show_shadows"]->setInt(m_bShowShadows? 1 : 0);
+			return true;
+			break;
+	}
+
+	if (bUpdate) {
+		setCutoff(m_cutoff_from, m_cutoff_to);
+		return true;
+	}
+
+	return false;
 }
 
 void VolumetricScene::setCutoff(const float & cut_from, const float & cut_to) { 
@@ -279,7 +275,6 @@ Buffer VolumetricScene::getOutputBuffer()
 {
 	return m_context["output_buffer"]->getBuffer();
 }
-
 
 void VolumetricScene::trace( const RayGenCameraData& camera_data )
 {

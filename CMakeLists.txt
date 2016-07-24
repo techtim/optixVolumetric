@@ -24,7 +24,7 @@ if(GLUT_FOUND AND OPENGL_FOUND)
   add_definitions(-DGLUT_FOUND -DGLUT_NO_LIB_PRAGMA)
 
   # See top level CMakeLists.txt file for documentation of OPTIX_add_sample_executable.
-  OPTIX_add_sample_executable( volumetric
+  OPTIX_add_sample_executable( optixVolumetric
     VolumetricScene.h
     volumetric.cpp
     volumetric.cu

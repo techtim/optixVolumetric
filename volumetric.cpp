@@ -1,3 +1,10 @@
+//
+//  volumetric.cpp
+//  optixVolumetric
+//
+//  Created by Tim Tavlintsev (TVL)
+//
+//
 
 #include <GLUTDisplay.h>
 #include "VolumetricScene.h"
@@ -14,12 +21,12 @@ void printUsageAndExit( const string& argv0, bool doExit = true )
 		<< "  --sphere                               	Show voxels as spheres \n"
 		<< "  --size=<X>x<Y>x<Z>						Set volume dimensions \n" 
 		<< "  --dataset=<path_to_bin_data>              Set path for volumetric data \n"
-		<< "  --gradient-start=0xff0000ff 				Begin gradient \n" 
-		<< "  --gradient-end=0x00ff00ff 				End gradient \n"
-		<< "  --window=\"[<val>, <val>]\"				Filter window for values from dataset"
+		<< "  --gradient-start=0xff0000ff 				Set begin gradient \n" 
+		<< "  --gradient-end=0x00ff00ff 				Set end gradient \n"
+		<< "  --window=\"[<val>, <val>]\"				Set filtering window for values from dataset"
 		// << " buffers (defaults to 4)\n"
 		<< endl;
-		GLUTDisplay::printUsage();
+		// GLUTDisplay::printUsage();
 	cerr
 		<< "App keystrokes:\n"
 		<< "  '-' / '=' Decrease/increase window values from \n"
@@ -34,13 +41,14 @@ int main( int argc, char** argv )
 {
 	GLUTDisplay::init( argc, argv );
 
-	// Process commandline
+	// Temporal values for config
 	uint3 volumeSize = make_uint3(200, 200, 200);
 	string filename;
 	vector<float> cut;
 	float3 gradient_start = make_float3(0.9f,0,0), gradient_end = make_float3(0,0,0.9f);
 	bool bSphereVoxel = false;
 
+	// Process commandline
 	for(int i = 1; i < argc; ++i) {
 		string arg(argv[i]);
 		std::string arg_prefix, arg_value;
@@ -86,6 +94,7 @@ int main( int argc, char** argv )
 				volumeSize.z = strTo<unsigned int>(volumesInput[2]);
 			}
 			cout << "Volume Size: " << volumeSize.x << " x " << volumeSize.y << " x " << volumeSize.z << endl;
+		
 		// Read gradient values
 		} else if (arg_prefix == "--gradient-start=") {
 			gradient_start = strToColor(arg_value);
@@ -93,6 +102,8 @@ int main( int argc, char** argv )
 		} else if (arg_prefix == "--gradient-end=") {
 			gradient_end = strToColor(arg_value);
 			cout << "gradient-start: " << gradient_end.x << " x " << gradient_end.y << " x " << gradient_end.z << endl;
+
+		// Check for sphere redrering flag
 		} else if (arg == "--sphere") {
 			bSphereVoxel = true;
 		}
@@ -105,7 +116,6 @@ int main( int argc, char** argv )
 	if( !GLUTDisplay::isBenchmark() ) printUsageAndExit( argv[0], false );
 
 	try {
-		
 		VolumetricScene scene( volumeSize, filename, bSphereVoxel);
 		if (cut.size() > 1) 
 			scene.setCutoff(cut[0], cut[1]);

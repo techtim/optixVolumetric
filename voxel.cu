@@ -1,3 +1,11 @@
+//
+//  voxel.cu
+//  optixVolumetric
+//
+//  Created by Tim Tavlintsev (TVL)
+//
+//
+
 #include <optix_world.h>
 
 using namespace optix;
@@ -19,7 +27,6 @@ rtDeclareVariable(float, cutoff_to, , );
 //
 // Box
 //
-
 static __device__ void make_box(const float4 & input, float3 & boxmin, float3  & boxmax) {
   float halfWidth = input.w/2;
   boxmin.x = input.x-halfWidth; boxmax.x = input.x+halfWidth;
@@ -39,7 +46,7 @@ static __device__ float3 boxnormal(const float3 & boxmin, const float3 & boxmax,
 
 RT_PROGRAM void box_intersect(int primIdx)
 {
-
+  // filter 0 values and colors cutted by cutoff_from/cutoff_to
   if (color_buffer[primIdx].w == 0) return;
   else if (color_buffer[primIdx].w < cutoff_from || color_buffer[primIdx].w > cutoff_to) return;
 
@@ -85,7 +92,7 @@ RT_PROGRAM void box_bounds (int primIdx, float result[6])
 
 RT_PROGRAM void sphere_intersect(int primIdx)
 {
-
+  // filter 0 values and colors cutted by cutoff_from/cutoff_to
   if (color_buffer[primIdx].w == 0) return;
   else if (color_buffer[primIdx].w < cutoff_from || color_buffer[primIdx].w > cutoff_to) return;
 
